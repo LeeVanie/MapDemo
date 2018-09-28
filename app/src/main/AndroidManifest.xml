@@ -46,6 +46,7 @@
         <activity android:name=".SreachActivity"/>
         <activity android:name=".RoutePlanActivity"/>
         <activity android:name=".RouteDetailsActivity"/>
+        <activity android:name=".DemoGuideActivity"/>
 
         <meta-data
             android:name="com.baidu.lbsapi.API_KEY"

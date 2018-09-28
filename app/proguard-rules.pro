@@ -18,4 +18,5 @@
 
 -keep class com.baidu.** {*;}
 -keep class vi.com.** {*;}    
+-keep class vi.com.gdi.bgl.**{*;}
 -dontwarn com.baidu.**

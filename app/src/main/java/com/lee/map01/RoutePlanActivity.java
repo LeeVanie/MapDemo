@@ -6,6 +6,10 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Environment;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.Message;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
@@ -15,6 +19,7 @@ import android.view.Window;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.baidu.mapapi.map.BaiduMap;
@@ -37,6 +42,14 @@ import com.baidu.mapapi.search.route.TransitRoutePlanOption;
 import com.baidu.mapapi.search.route.TransitRouteResult;
 import com.baidu.mapapi.search.route.WalkingRoutePlanOption;
 import com.baidu.mapapi.search.route.WalkingRouteResult;
+import com.baidu.navisdk.adapter.BNCommonSettingParam;
+import com.baidu.navisdk.adapter.BNRoutePlanNode;
+import com.baidu.navisdk.adapter.BNaviSettingManager;
+import com.baidu.navisdk.adapter.BaiduNaviManager;
+import com.baidu.navisdk.adapter.BaiduNaviManagerFactory;
+import com.baidu.navisdk.adapter.IBNRoutePlanManager;
+import com.baidu.navisdk.adapter.IBNTTSManager;
+import com.baidu.navisdk.adapter.IBaiduNaviManager;
 import com.lee.map01.adapter.RouteAdapter;
 import com.lee.map01.adapter.RouteDetailsAdapter;
 import com.lee.map01.adapter.RouteLineAdapter;
@@ -50,7 +63,9 @@ import com.lee.map01.overlayutil.OverlayManager;
 import com.lee.map01.overlayutil.TransitRouteOverlay;
 import com.lee.map01.overlayutil.WalkingRouteOverlay;
 import com.lee.map01.utils.MyRecycleView;
+import com.lee.map01.utils.NormalUtils;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -85,6 +100,8 @@ public class RoutePlanActivity extends AppCompatActivity implements BaiduMap.OnM
     MyRecycleView recycleview;
     @BindView(R.id.details)
     Button details;
+    @BindView(R.id.btn_dh)
+    TextView btn_dh;
 
 
     // 浏览路线节点相关
@@ -112,6 +129,10 @@ public class RoutePlanActivity extends AppCompatActivity implements BaiduMap.OnM
     private ArrayList<String> strings;
     private String flag;
 
+    static final String ROUTE_PLAN_NODE = "routePlanNode";
+    private static final String APP_FOLDER_NAME = "BNSDKSimpleDemo";
+    private String mSDCardPath = null;
+    private boolean hasInitSuccess = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -139,6 +160,9 @@ public class RoutePlanActivity extends AppCompatActivity implements BaiduMap.OnM
         enNode = PlanNode.withLocation(new LatLng(Common.Sreach_Latitude, Common.Sreach_Longitude));
         mSearch.drivingSearch((new DrivingRoutePlanOption()).from(stNode).to(enNode));
         nowSearchType = 1;
+        if (initDirs()) {
+            initNavi();
+        }
 
     }
     /**
@@ -174,7 +198,165 @@ public class RoutePlanActivity extends AppCompatActivity implements BaiduMap.OnM
             Intent intent = new Intent(RoutePlanActivity.this, RouteDetailsActivity.class);
             intent.putStringArrayListExtra("STRING", strings);
             startActivity(intent);
+        } else if (v.getId() == R.id.btn_dh){
+            if (BaiduNaviManager.isNaviInited()) {
+                routeplanToNavi(BNRoutePlanNode.CoordinateType.GCJ02);
+            }
         }
+    }
+
+    private void routeplanToNavi(int coType) {
+        if (!hasInitSuccess) {
+            Toast.makeText(this, "还未初始化!", Toast.LENGTH_SHORT).show();
+        }
+        final BNRoutePlanNode sNode = new BNRoutePlanNode(stNode.getLocation().longitude, stNode.getLocation().latitude,
+                Common.Location_Address,
+                Common.Location_End, coType);
+        BNRoutePlanNode eNode = new BNRoutePlanNode(enNode.getLocation().longitude, enNode.getLocation().latitude,
+                Common.Location_Address,
+                Common.Location_End, coType);
+        List<BNRoutePlanNode> list = new ArrayList<BNRoutePlanNode>();
+        list.add(sNode);
+        list.add(eNode);
+
+
+        BaiduNaviManagerFactory.getRoutePlanManager().routeplanToNavi(
+                list,
+                IBNRoutePlanManager.RoutePlanPreference.ROUTE_PLAN_PREFERENCE_DEFAULT,
+                null,
+                new Handler(Looper.getMainLooper()) {
+                    @Override
+                    public void handleMessage(Message msg) {
+                        switch (msg.what) {
+                            case IBNRoutePlanManager.MSG_NAVI_ROUTE_PLAN_START:
+                                Toast.makeText(RoutePlanActivity.this, "算路开始", Toast.LENGTH_SHORT)
+                                        .show();
+                                break;
+                            case IBNRoutePlanManager.MSG_NAVI_ROUTE_PLAN_SUCCESS:
+                                Toast.makeText(RoutePlanActivity.this, "算路成功", Toast.LENGTH_SHORT)
+                                        .show();
+                                break;
+                            case IBNRoutePlanManager.MSG_NAVI_ROUTE_PLAN_FAILED:
+                                Toast.makeText(RoutePlanActivity.this, "算路失败", Toast.LENGTH_SHORT)
+                                        .show();
+                                break;
+                            case IBNRoutePlanManager.MSG_NAVI_ROUTE_PLAN_TO_NAVI:
+                                Toast.makeText(RoutePlanActivity.this, "算路成功准备进入导航", Toast.LENGTH_SHORT)
+                                        .show();
+                                Intent intent = new Intent(RoutePlanActivity.this,
+                                        DemoGuideActivity.class);
+                                Bundle bundle = new Bundle();
+                                bundle.putSerializable(ROUTE_PLAN_NODE, sNode);
+                                intent.putExtras(bundle);
+                                startActivity(intent);
+                                break;
+                            default:
+                                // nothing
+                                break;
+                        }
+                    }
+                });
+
+    }
+
+    private void initNavi() {
+        try {
+            BaiduNaviManagerFactory.getBaiduNaviManager().init(this,
+                    mSDCardPath, APP_FOLDER_NAME, new IBaiduNaviManager.INaviInitListener() {
+
+                        @Override
+                        public void onAuthResult(int status, String msg) {
+                            String result;
+                            if (0 == status) {
+                                result = "key校验成功!";
+                            } else {
+                                result = "key校验失败, " + msg;
+                            }
+                            Toast.makeText(RoutePlanActivity.this, result, Toast.LENGTH_LONG).show();
+                        }
+
+                        @Override
+                        public void initStart() {
+                            Toast.makeText(RoutePlanActivity.this, "百度导航引擎初始化开始", Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void initSuccess() {
+                            Toast.makeText(RoutePlanActivity.this, "百度导航引擎初始化成功", Toast.LENGTH_SHORT).show();
+                            hasInitSuccess = true;
+                            // 初始化tts
+                            initTTS();
+                        }
+
+                        @Override
+                        public void initFailed() {
+                            Toast.makeText(RoutePlanActivity.this, "百度导航引擎初始化失败", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        } catch (Exception e){
+            e.printStackTrace();
+        }
+    }
+
+    private void initTTS() {
+        // 使用内置TTS
+        BaiduNaviManagerFactory.getTTSManager().initTTS(getApplicationContext(), getSdcardDir(), APP_FOLDER_NAME, NormalUtils.getTTSAppID());
+
+
+        // 不使用内置TTS
+        //         BaiduNaviManagerFactory.getTTSManager().initTTS(mTTSCallback);
+
+        // 注册同步内置tts状态回调
+        BaiduNaviManagerFactory.getTTSManager().setOnTTSStateChangedListener(new IBNTTSManager.IOnTTSPlayStateChangedListener() {
+            @Override
+            public void onPlayStart() {
+                Log.e("BNSDKDemo", "ttsCallback.onPlayStart");
+            }
+
+            @Override
+            public void onPlayEnd(String speechId) {
+                Log.e("BNSDKDemo", "ttsCallback.onPlayEnd");
+            }
+
+            @Override
+            public void onPlayError(int code, String message) {
+                Log.e("BNSDKDemo", "ttsCallback.onPlayError");
+            }
+        });
+
+        // 注册内置tts 异步状态消息
+        BaiduNaviManagerFactory.getTTSManager().setOnTTSStateChangedHandler(new Handler(Looper.getMainLooper()) {
+            @Override
+            public void handleMessage(Message msg) {
+                Log.e("BNSDKDemo", "ttsHandler.msg.what=" + msg.what);
+            }
+        });
+
+    }
+
+    private String getSdcardDir() {
+        if (Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
+            return Environment.getExternalStorageDirectory().toString();
+        }
+        return null;
+    }
+
+    private boolean initDirs() {
+        if (Environment.getExternalStorageState().equalsIgnoreCase(Environment.MEDIA_MOUNTED)) {
+            mSDCardPath = Environment.getExternalStorageDirectory().toString();
+        } else {
+            return false;
+        }
+        File f = new File(mSDCardPath, APP_FOLDER_NAME);
+        if (!f.exists()) {
+            try {
+                f.mkdir();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

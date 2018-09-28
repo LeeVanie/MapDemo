@@ -205,11 +205,6 @@ public class LocationAddress {
         };
 
 
-
-        @Override
-        public void onConnectHotSpotMessage(String s, int i) {
-
-        }
     }
     
 

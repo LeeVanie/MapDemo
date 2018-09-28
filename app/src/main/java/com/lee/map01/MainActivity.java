@@ -51,6 +51,7 @@ import com.baidu.mapapi.search.geocode.ReverseGeoCodeOption;
 import com.baidu.mapapi.search.geocode.ReverseGeoCodeResult;
 import com.baidu.mapapi.search.poi.OnGetPoiSearchResultListener;
 import com.baidu.mapapi.search.poi.PoiDetailResult;
+import com.baidu.mapapi.search.poi.PoiDetailSearchResult;
 import com.baidu.mapapi.search.poi.PoiIndoorResult;
 import com.baidu.mapapi.search.poi.PoiNearbySearchOption;
 import com.baidu.mapapi.search.poi.PoiResult;
@@ -172,9 +173,6 @@ public class MainActivity extends AppCompatActivity {
             mBaiduMap.animateMapStatus(MapStatusUpdateFactory.newMapStatus(builder.build()));
         }
 
-        @Override
-        public void onConnectHotSpotMessage(String s, int i) {
-        }
     };
 
     //搜索监听
@@ -206,6 +204,11 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onGetPoiDetailResult(PoiDetailResult poiDetailResult) {     // 获取Place详情页检索结果
 
+        }
+
+        @Override
+        public void onGetPoiDetailResult(PoiDetailSearchResult poiDetailSearchResult) {
+            
         }
 
         @Override

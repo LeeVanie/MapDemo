@@ -1,6 +1,7 @@
 package com.lee.map01;
 
 import android.app.Application;
+import android.support.multidex.MultiDexApplication;
 
 import com.baidu.mapapi.SDKInitializer;
 
@@ -12,7 +13,7 @@ import com.baidu.mapapi.SDKInitializer;
  * @最后修改者:
  * @最后修改内容:
  */
-public class MyApplication extends Application {
+public class MyApplication extends MultiDexApplication {
     
     public static MyApplication application;
     
