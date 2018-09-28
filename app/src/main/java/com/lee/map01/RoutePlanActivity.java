@@ -200,7 +200,7 @@ public class RoutePlanActivity extends AppCompatActivity implements BaiduMap.OnM
             startActivity(intent);
         } else if (v.getId() == R.id.btn_dh){
             if (BaiduNaviManager.isNaviInited()) {
-                routeplanToNavi(BNRoutePlanNode.CoordinateType.GCJ02);
+                routeplanToNavi(BNRoutePlanNode.CoordinateType.BD09LL);
             }
         }
     }
